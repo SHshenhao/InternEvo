@@ -125,7 +125,7 @@ def set_fp32_attr_for_model(model: Union[nn.Module, nn.ModuleList]):
 
 
 def set_parallel_attr_for_param_groups(model: Union[nn.Module, nn.ModuleList]):
-    def _check_module_pure_dp_wdp(name, module):  # pylint: disable=W0613
+    def _check_module_pure_dp(name, module):  # pylint: disable=W0613
         for param in module.parameters():
             setattr(param, IS_REPLICA_ZERO_PARALLEL, True)
 
@@ -177,11 +177,13 @@ def set_parallel_attr_for_param_groups(model: Union[nn.Module, nn.ModuleList]):
                 setattr(param, IS_REPLICA_ZERO_PARALLEL, True)
 
     for _chunk in unwrap_naive_amp(model):
-        # special case for pure dp or pure wdp mode
-        if gpc.get_world_size(ParallelMode.DATA) == gpc.get_world_size(ParallelMode.GLOBAL) or gpc.get_world_size(
-            ParallelMode.WEIGHT_DATA
-        ) == gpc.get_world_size(ParallelMode.GLOBAL):
-            _check_module_func = _check_module_pure_dp_wdp
+        # special case for pure dp mode
+        if (
+            isinstance(gpc.config.parallel["tensor"], dict)
+            and gpc.config.parallel["tensor"].get("mode", TensorParallelMode.mtp.name) == TensorParallelMode.mtp.name
+            and gpc.get_world_size(ParallelMode.DATA) == gpc.get_world_size(ParallelMode.GLOBAL)
+        ):
+            _check_module_func = _check_module_pure_dp
         else:
             _check_module_func = _check_module
         # set param parallel attribute
@@ -927,9 +929,11 @@ def inject_model_helper(model: Union[nn.Module, nn.ModuleList], inject_info: Opt
 
     # inject modules
     for _chunk in model:
-        if gpc.get_world_size(ParallelMode.DATA) == gpc.get_world_size(ParallelMode.GLOBAL) or gpc.get_world_size(
-            ParallelMode.WEIGHT_DATA
-        ) == gpc.get_world_size(ParallelMode.GLOBAL):
+        if (
+            isinstance(gpc.config.parallel["tensor"], dict)
+            and gpc.config.parallel["tensor"].get("mode", TensorParallelMode.mtp.name) == TensorParallelMode.mtp.name
+            and gpc.get_world_size(ParallelMode.DATA) == gpc.get_world_size(ParallelMode.GLOBAL)
+        ):
             continue
         for mod in modules:
             inject_funcs[mod](_chunk, inject, interactive)
