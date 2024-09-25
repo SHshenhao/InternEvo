@@ -19,6 +19,6 @@ class MockedSequentialBatchSampler:
     def __len__(self):
         return (len(self.train_ds) + self.micro_num - 1) // self.micro_num
 
-    # TODO: implement copy method that compatible with InternEvo trainstate
+    # TODO: implement copy method that compatible with InternEvo trainstate ckpt save and load.
     def copy(self):
         return copy.deepcopy(self)

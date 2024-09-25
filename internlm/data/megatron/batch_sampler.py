@@ -57,6 +57,6 @@ class MegatronBatchSampler:
             start_idx, end_idx = self.get_start_end_idx()
             yield batch[start_idx:end_idx]
 
-    # TODO: implement copy method that compatible with InternEvo trainstate
+    # TODO: implement copy method that compatible with InternEvo trainstate ckpt save and load.
     def copy(self):
         return copy.deepcopy(self)
