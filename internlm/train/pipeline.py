@@ -151,6 +151,10 @@ def set_parallel_attr_for_param_groups(model: Union[nn.Module, nn.ModuleList]):
                     setattr(param, IS_TENSOR_ZERO_PARALLEL, True)
 
         # for moe linear module
+        if isinstance(module, nn.Linear) and not isinstance(module, ParallelLinearWithCommExt):
+            for param in module.parameters():
+                setattr(param, IS_REPLICA_ZERO_PARALLEL, True)
+
         if isinstance(module, Experts):
             for param in module.parameters():
                 if (
