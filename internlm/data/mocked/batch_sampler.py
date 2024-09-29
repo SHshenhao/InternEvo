@@ -1,9 +1,16 @@
 class MockedSequentialBatchSampler:
     """
-    MockedSequentialBatchSampler
+    A batch sampler that yields sequential batches of a specified size from a dataset.
     """
 
     def __init__(self, train_ds, micro_num):
+        """
+        Initialize the MockedSequentialBatchSampler.
+
+        Args:
+            train_ds: The training dataset to sample from.
+            micro_num (int): The number of micro batches.
+        """
         self.train_ds = train_ds
         self.micro_num = micro_num
 
@@ -12,7 +19,8 @@ class MockedSequentialBatchSampler:
 
     def __iter__(self):
         num_samples = len(self.train_ds)
-        for start in range(0, num_samples, self.micro_num):
+        while self.num_consumed_samples_in_epoch < num_samples:
+            start = self.num_consumed_samples_in_epoch
             end = min(start + self.micro_num, num_samples)
             self.batch_count += 1
             self.num_consumed_samples_in_epoch += end - start
