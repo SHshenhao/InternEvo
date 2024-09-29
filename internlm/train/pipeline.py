@@ -891,18 +891,21 @@ def inject_norm(model: nn.Module, inject=False, interactive=False) -> None:
 
 
 def inject_config(model: nn.Module) -> None:
+    # Compatibility for Vision-Language Model
     if hasattr(model.config, "text_config"):
-        model_config = model.config.text_config
+        llm_cfg = model.config.text_config
     else:
-        model_config = model.config
-    gpc.config.model.vocab_size = gpc.config.VOCAB_SIZE = model_config.vocab_size
-    gpc.config.model.hidden_size = gpc.config.HIDDEN_SIZE = model_config.hidden_size
-    gpc.config.model.num_layers = gpc.config.NUM_LAYER = model_config.num_hidden_layers
-    gpc.config.model.num_attention_heads = gpc.config.NUM_ATTENTION_HEAD = model_config.num_attention_heads
-    gpc.config.model.mlp_ratio = gpc.config.MLP_RATIO = model_config.intermediate_size / model_config.hidden_size
+        llm_cfg = model.config
+    gpc.config.model.vocab_size = gpc.config.VOCAB_SIZE = llm_cfg.vocab_size
+    gpc.config.model.hidden_size = gpc.config.HIDDEN_SIZE = llm_cfg.hidden_size
+    gpc.config.model.num_layers = gpc.config.NUM_LAYER = llm_cfg.num_hidden_layers
+    # Compatibility for Mamba
+    if hasattr(llm_cfg, "num_attention_heads"):
+        gpc.config.model.num_attention_heads = gpc.config.NUM_ATTENTION_HEAD = llm_cfg.num_attention_heads
+    gpc.config.model.mlp_ratio = gpc.config.MLP_RATIO = llm_cfg.intermediate_size / llm_cfg.hidden_size
     # For models that use GQA
-    if hasattr(model_config, "num_key_value_heads"):
-        gpc.config.model.num_kv_attention_heads = gpc.config.NUM_KV_ATTENTION_HEAD = model_config.num_key_value_heads
+    if hasattr(llm_cfg, "num_key_value_heads"):
+        gpc.config.model.num_kv_attention_heads = gpc.config.NUM_KV_ATTENTION_HEAD = llm_cfg.num_key_value_heads
 
 
 def inject_model_helper(model: Union[nn.Module, nn.ModuleList], inject_info: Optional[Dict] = None) -> None:
