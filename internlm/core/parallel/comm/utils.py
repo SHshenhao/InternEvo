@@ -210,6 +210,29 @@ def reduce_forward(input_, parallel_mode):
     return _ReduceForward.apply(input_, parallel_mode)
 
 
+class _IdentityForwardReduceBackward(torch.autograd.Function):
+    """
+    All-reduce the input_grad from the model parallel region.
+
+    Args:
+        input_: input matrix.
+        parallel_mode: parallel mode.
+    """
+
+    @staticmethod
+    def forward(ctx, input_, parallel_mode):  # pylint: disable=W0613
+        ctx.parallel_mode = parallel_mode
+        return input_
+
+    @staticmethod
+    def backward(ctx, grad_output):  # pylint: disable=W0613
+        return _reduce(grad_output, ctx.parallel_mode), None
+
+
+def identity_forward_reduce_backward(input_, parallel_mode):
+    return _IdentityForwardReduceBackward.apply(input_, parallel_mode)
+
+
 def all_gather_raw(
     input_: Tensor,
     process_group: ProcessGroup,
