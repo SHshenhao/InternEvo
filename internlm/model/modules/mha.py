@@ -12,7 +12,7 @@ from torch.nn import functional as F
 
 from internlm.core.context import ParallelMode
 from internlm.core.context import global_context as gpc
-from internlm.core.parallel.comm.utils import gather_forward_split_backward, split_forward_gather_backward, identity_forward_reduce_backward
+from internlm.core.parallel.comm.utils import gather_forward_split_backward, split_forward_gather_backward
 from internlm.model.modules.embedding import new_rotary_embedding
 from internlm.model.modules.linear import new_linear
 from internlm.model.modules.utils import update_kv_cache
@@ -502,13 +502,10 @@ class GQA(nn.Module):
             self.wk = new_linear("wk", embed_dim, self.kv_dim, bias, **factory_kwargs)
             self.wv = new_linear("wv", embed_dim, self.kv_dim, bias, **factory_kwargs)
             if qk_norm:
-                tp_size = gpc.get_world_size(ParallelMode.TENSOR)
-                assert (num_heads//tp_size)%chameleon_mp_size == 0, \
-                    "(num_heads//tp_size)%chameleon_mp_size != 0 in GQA"
-                assert (num_kv_heads//tp_size)%chameleon_mp_size == 0, \
-                    "(num_kv_heads//tp_size)%chameleon_mp_size != 0 in GQA"
-                self.q_norm = ChameleonLayerNorm(self.head_dim,chameleon_mp_size,num_heads//tp_size)
-                self.k_norm = ChameleonLayerNorm(self.head_dim,chameleon_mp_size,num_kv_heads//tp_size)
+                assert num_heads%chameleon_mp_size == 0, "num_heads%chameleon_mp_size != 0 in GQA"
+                assert num_kv_heads%chameleon_mp_size == 0, "num_kv_heads%chameleon_mp_size != 0 in GQA"
+                self.q_norm = ChameleonLayerNorm(self.head_dim,chameleon_mp_size,num_heads)
+                self.k_norm = ChameleonLayerNorm(self.head_dim,chameleon_mp_size,num_kv_heads)
 
         self.inner_attn = SelfAttention(
             causal=causal, softmax_scale=softmax_scale, attention_dropout=dropout, layer_idx=layer_idx
@@ -550,18 +547,12 @@ class GQA(nn.Module):
             if self.qk_norm:
                 q = rearrange(q, "b s (h d) -> b s h d", d=self.head_dim)
                 k = rearrange(k, "b s (h d) -> b s h d", d=self.head_dim)
-                identity_forward_reduce_backward(self.q_norm.weight, ParallelMode.TENSOR)
-                identity_forward_reduce_backward(self.q_norm.bias, ParallelMode.TENSOR)
-                identity_forward_reduce_backward(self.k_norm.weight, ParallelMode.TENSOR)
-                identity_forward_reduce_backward(self.k_norm.bias, ParallelMode.TENSOR)
-                q = self.q_norm(q)
-                k = self.k_norm(k)
-                # q_all = gather_forward_split_backward(q, ParallelMode.TENSOR, dim=-2)
-                # q_norm_out = self.q_norm(q_all)
-                # q = split_forward_gather_backward(q_norm_out, ParallelMode.TENSOR, dim=-2)
-                # k_all = gather_forward_split_backward(k, ParallelMode.TENSOR, dim=-2)
-                # k_norm_out = self.k_norm(k_all)
-                # k = split_forward_gather_backward(k_norm_out, ParallelMode.TENSOR, dim=-2)
+                q_all = gather_forward_split_backward(q, ParallelMode.TENSOR, dim=-2)
+                q_norm_out = self.q_norm(q_all)
+                q = split_forward_gather_backward(q_norm_out, ParallelMode.TENSOR, dim=-2)
+                k_all = gather_forward_split_backward(k, ParallelMode.TENSOR, dim=-2)
+                k_norm_out = self.k_norm(k_all)
+                k = split_forward_gather_backward(k_norm_out, ParallelMode.TENSOR, dim=-2)
 
                 v = rearrange(v, "b s (h d) -> b s h d", d=self.head_dim)
             else:
