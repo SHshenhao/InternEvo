@@ -504,8 +504,8 @@ class GQA(nn.Module):
             if qk_norm:
                 assert num_heads%chameleon_mp_size == 0, "num_heads%chameleon_mp_size != 0 in GQA"
                 assert num_kv_heads%chameleon_mp_size == 0, "num_kv_heads%chameleon_mp_size != 0 in GQA"
-                self.q_norm = ChameleonLayerNorm(self.head_dim,chameleon_mp_size,num_heads)
-                self.k_norm = ChameleonLayerNorm(self.head_dim,chameleon_mp_size,num_kv_heads)
+                self.q_norm = ChameleonLayerNorm(self.head_dim,chameleon_mp_size,num_heads//chameleon_mp_size)
+                self.k_norm = ChameleonLayerNorm(self.head_dim,chameleon_mp_size,num_kv_heads//chameleon_mp_size)
 
         self.inner_attn = SelfAttention(
             causal=causal, softmax_scale=softmax_scale, attention_dropout=dropout, layer_idx=layer_idx
