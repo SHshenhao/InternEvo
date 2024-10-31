@@ -382,15 +382,15 @@ class ChameleonLayerNorm(nn.LayerNorm):
     in the last dimension. This module applies gamma/beta manually to fulfill this requirement.
     """
 
-    def __init__(self, hidden_size, model_parallel_size, n_heads_per_mp, *args, **kwargs):
+    def __init__(self, hidden_size, head_group_num, n_heads_per_group, *args, **kwargs):
         if isinstance(hidden_size, int):
             hidden_size = (hidden_size,)
-        super().__init__([model_parallel_size, *hidden_size], *args, **kwargs)
+        super().__init__([head_group_num, *hidden_size], *args, **kwargs)
         self.normalized_shape = (hidden_size[-1],)
-        self.n_heads_per_mp = n_heads_per_mp
+        self.n_heads_per_group = n_heads_per_group
 
     def repeat_param(self, param):
-        return param.repeat_interleave(self.n_heads_per_mp, dim=0)
+        return param.repeat_interleave(self.n_heads_per_group, dim=0)
 
     def forward(self, hidden_states):
         hidden_states = F.layer_norm(hidden_states, self.normalized_shape, None, None, eps=1e-5)
