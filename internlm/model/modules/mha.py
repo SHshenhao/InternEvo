@@ -634,6 +634,7 @@ class GQA(nn.Module):
             if self.qk_norm:
                 q = rearrange(q, "b s (h d) -> b s h d", d=self.head_dim)
                 k = rearrange(k, "b s (h d) -> b s h d", d=self.head_dim)
+                # TODO: using repeat + (fwd: split, bwd: allgather or allreducesum) is better
                 q_all = gather_forward_split_backward(q, ParallelMode.TENSOR, dim=-2)
                 q_norm_out = self.q_norm(q_all)
                 q = split_forward_gather_backward(q_norm_out, ParallelMode.TENSOR, dim=-2)
